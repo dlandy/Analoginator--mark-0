@@ -1,0 +1,121 @@
+//So the idea is to have a category of objects (strings, or eventually trees), and transformations over those objects. These transformations compose. Crucially, each transformation contains not only the resulting object, but the mapping. That is, for each entity in a pattern
+
+
+You might have 
+
+a+b -> b+a
+
+or (a+b)+c -> a+(b+c)
+
+or a+b -> [a+b]
+
+
+So you have a directed graph that always contains two disjoint independence sets, the source and the result, which together make up the transformation.  Each transformation defines for each member of the independence set what took it into that, and by what transformation.  Transformations compose to make compound transforms, which are id if the 'internal' subgraphs don't 'mesh', and otherwise are the trace from inputs to outputs.  
+
+These are the morphisms.
+
+The simpler way to think of it is that the state space is the states, and that the morphisms have internal structure that lets them 'report' their own transformation processes.  This means, though, that objects don't define equivalence over morphisms.  Or, if you like, each entity is the product of a morphism over states and a mapping across states. That actually seems right to me.
+
+Finally, though, the question of sub-graphs. one thing is to think of the pattern applied at a substate.  But we might want to think of 
+
+a+b+c+d -> b+a+d+c 
+
+as a composed (singular) morphism, involving swapping a+b and swapping c+d.
+
+So transformations are like this:
+
+(State, Location)  -> State
+
+But then....how do we compose them?  By Currying.
+
+So we have a family of transformations, 
+
+State -> State,
+
+indexed by location.  So one *pattern* actually generates lots of transformations.  Yeah, that makes sense. The patterns are like a generator.  
+
+so pattern.id: location -> transformation(State->State)
+pattern.a+b->b+a: location -> transformation(State->State)
+
+Now, transformations take states into state, but we also need to be able to visualize the path.  That involves then being able to decompose each transformation....
+
+So....our patterns actually generate two indexed things: transforamtions(State->State) and identity mappings(Substate->Substate), that tell us how elements of the state produce new entities.
+
+We assume that Substates are *somehow* indexed, and let the states work out how that indexing actually works.
+
+so now 
+
+pattern.a+b->b+a: location -> TRANS
+
+TRANS.transformation(State->State)
+TRANS.mapping([Indexes])([Indexes] -> [Indexes])
+
+
+TRANS = function(){
+	this.transformation = function(state){ return state; } //defaults to identity
+	this.mapping = function(indexes){ return indexes; } //Again, to identity
+	this.compose = function(second){
+			result = new TRANS();
+			result.transformation = function(state){return this.transformation(second.transformation(state)); }
+	this.mapping = function(indexes){ return this.mapping(second.mapping(indexes));}
+	}
+}
+
+so pattern.id = function(location){  //Takes a location, and returns the member of TRANS that is indexed to that location
+	this.transformation = function(state){ return state; } //because the identity trans never does anything
+	this.mapping = function(indexes){ return indexes; } //Again, the id does nothing
+} 
+
+stateFromString = function(stateString){ // creates a new state object, which can yield and accept indexes...right now, indexes are just elements.  
+	this.string = stateString;
+	this.indexes = 
+	//As a convenience, I'll add a "atomic indexes" into the miminal elements
+	this.atomicIndexes = [1:length()]
+
+
+}
+
+
+
+
+Given that, the composition rules are totally natural.  Really, this should be a behavior of a 'trans' prototype.
+
+composeTRANS = function(tInner, tOuter) {
+	this.transformation = function(state){return tOuter.transformation(tInner.transformation(state)); }
+	this.mapping = function(indexes){ return tOuter.mapping(tInner.mapping(indexes));}
+
+}
+
+
+Now, to visualize a TRANS, we just get the resulting state, and 'map' each index of the start state to find exits and movements; each endstate index that didn't get mapped is a entrance.
+
+States have to have indexes into substates, a null state, and to report the entire list of appropriate indexes.  
+
+
+
+
+You should be able to apply these actions/patterns to any structure, returning another action/pattern. This will be the identity action if there is no match, or a particular action, otherwise.
+
+
+taking the first, you ought to be able to ask "where did the nth element go?" and (where did the nth element of the output come from?)
+
+And "What is the result"?
+
+Compatible actions (those of the same length) compose.  Actually, everything composes, it just returns id if nothing works.
+
+One trouble is that of variables.  What counts as a variable, and what a constant? For now, we'll use letters as variables, and keep operations fixed.  Like in Algebra. But this is a copout
+
+so 
+
+function transformation.id  (){
+  this.apply = function(x){return x};
+  this.resultIndex = function(i){return [i];}
+  this.sourceIndex = function(i){return [i];}
+}
+
+
+function transformation.commutePlus () {
+	this.apply=function(x){ 
+		
+	}
+}
