@@ -11,7 +11,7 @@
 
 
 <div class="formula">
-                Start: <input id="start"/>
+                Start: <input id="start" value="1+2+3+4"/>
                 End: <input id="end"/>
 </div>
 
@@ -19,7 +19,7 @@
 
 
 
-
+<script src="transformations.js"></script>
 
 
     <script type="text/javascript">
@@ -51,7 +51,9 @@ var setup = function(startString, endString){
            .attr("transform", function(d, i) {
              // Set d.x and d.y here so that other elements can use it. d is 
              // expected to be an object here.
-             var dx = i * 100 + 50;
+             var offset = 50*(10-startString.length);
+
+             var dx = i * 100 + offset;
              var dy = 50;
              return "translate(" + dx + "," + dy + ")"; 
            });
@@ -81,6 +83,7 @@ var endNodes = svg.append("g")
            .attr("transform", function(d, i) {
              // Set d.x and d.y here so that other elements can use it. d is 
              // expected to be an object here.
+
              var dx = i * 100 + 50;
              var dy = 150;
              return "translate(" + dx + "," + dy + ")"; 
@@ -106,160 +109,10 @@ endNodes.append("circle")
 
 
 
-setup('a+b', 'b+a');
+setup('1+2+3+4', 'b+a');
 
 
 
-//Helper stuff
-function cart_prod(X, Y) {
-    var out = [];
-    for (var i in X) for (var j in Y) out.push([X[i], Y[j]]);
-    return out;                     
-}
-
-function range(start, stop, step){
-  var a=[], b=start;
-  while(b<=stop){a.push(b);b+=step;}
-  return a;
-};
-
-//Transformations and patterns:
-
-//TRANS.transformation(State->State)
-//TRANS.mapping([State])([Indexes] -> [Indexes])
-
-
-TRANS = function(){
-  this.transformation = function(state){ return state; } //defaults to identity
-  this.mapping = function(state){ 
-    return function(indexes){ 
-      return indexes; 
-    } 
-  };//Again, to identity
-  var outer = this;
-  this.compose = function(inner){
-    result = new TRANS();
-    result.transformation = function(state){return outer.transformation(inner.transformation(state)); }
-    result.mapping = function(state){
-      return function(indexes){ 
-        outerMap = outer.mapping(state);
-        innerMap = inner.mapping(state);
-        return outerMap(innerMap(indexes));
-      }
-    }
-    return result;
-  }
-}
-
-pattern_id = function(location){  //Takes a location, and returns the member of TRANS that is indexed to that location
-  var id = new TRANS();
-  return id;  
-
-} 
-
-pattern_commutePlus = function(location){ // for now, this knows the indexes
-    var plusTRANS= new TRANS();
-
-    plusTRANS.match = function(state){
-      substate = state.substate(location);
-      return(substate.match(new stateFromString('a+b')));
-    }
-    plusTRANS.mapping = function(state){
-      return function(indexes){
-        substate = state.substate[location];
-        if(plusTRANS.match(state)){
-          return indexes.map(function(item) { 
-            if(item[0]==location[0]+0 || item[0]==location[0]+2){
-              if(item[0] == location[0]+0) { item[0] =location[0]+2;}
-              else if(item[0] ==location[0]+2){ item[0]=location[0]+0;}
-            }
-            if(item[1]==location[0]+0 || item[1]==location[0]+2){
-              if(item[1] == location[0]+0) { item[1] =location[0]+2;}
-              else if(item[1] ==location[0]+2){ item[1]=location[0]+0;}
-            }
-            return item;
-          });
-          
-        } else {
-          return indexes;
-        }
-      }
-    }
-
-    plusTRANS.transformation = function(state){
-      if(plusTRANS.match(state)){
-        indexes = (plusTRANS.mapping(state))(range(0, state.length-1, 1).map(function(x){return [x];}));
-        result = "";
-        for(i =0 ; i < indexes.length; i++){
-           result = result + state.substate(indexes[i]).string;
-        }
-        return new stateFromString(result);
-      } else {
-        return state;
-      }
-    }
-
-
-    return plusTRANS;
-  
-}
-
-
-
-
-
-// String based states, just for concreteness.  The 
-stateFromString = function(stateString){ // creates a new state object, which can yield and accept indexes...right now, indexes are just elements.  
-  this.string = stateString;
-  //As a convenience, I'll add a "atomic indexes" into the miminal elements
-  this.atomicIndexes = range(0, stateString.length , 1);
-  for(var i=0; i<stateString.length; i++){
-    this.atomicIndexes[i] = i;
-  }
-  this.indexes = cart_prod(this.atomicIndexes, this.atomicIndexes).filter(function(x){return x[0] <= x[1];});
-  this.length = this.string.length;
-  this.substate = function(index) {
-    if(index.length==0){
-      return new stateFromString("");
-    } else if(index.length==1){
-      return new stateFromString(this.string.substring(index[0], index[0]+1));
-    } else {
-      return new stateFromString(this.string.substring(index[0], index[1]+1));
-    }
-  }
-
-
-  this.match = function(other){
-   if(this.length != other.length){ return false};
-    bindings = [];
-    for(var i=0; i<this.length; i++){
-      otherChar = other.string[i];
-      thisChar = this.string[i];
-      if(otherChar.match(/[+\*\/-]/)){ //Result must be identical
-        if(otherChar != thisChar) return false;
-      } else if(otherChar.match(/[0-9]/)){ //Result must be identical
-        if(otherChar != thisChar) return false;
-      } else if(otherChar.match(/[a-z]/)){ //Result must be a number or letter
-          //AND result must be consistent with previous bindings
-        if(!thisChar.match(/[a-z0-9]/)) { return false;}
-        if(bindings[otherChar]){
-          if(bindings[otherChar] != thisChar) return false;
-        } else {
-          bindings[otherChar] = thisChar;
-        }
-
-      }
-    }
-    return true;
-  }
-
-
-  
- 
-
-return this;
-
-}
 
 // Visualization
 
@@ -277,31 +130,49 @@ d3.select("#setup").on("click", function() {
 d3.select("#go").on("click", function() {
   var circles = svg.selectAll("circle");
   var input = new stateFromString(document.getElementById("start").value);
+  
+  //
   var transformation1 = pattern_commutePlus([0, 2]);
-  var transformation2 = pattern_commutePlus([4, 6]);
-  var transformation = transformation2.compose(transformation1);
+  var transformation2 = pattern_commutePlus([2, 4]);
+  var transformation3 = pattern_commutePlus([4, 6]);
+  var transformationAdd1 = pattern_executePlus([0, 2]);
+  var transformationAdd2 = pattern_executePlus([2, 4]);
+    var transformationAdd3 = pattern_executePlus([4, 6]);
+
+  //Test Cases For Erik
+//  var transformation = transformationAdd2.compose(transformation1.compose(transformationAdd1.compose(transformation2)));
+
+  //var transformation = transformationAdd1.compose(transformationAdd3);
+
+ // var transformation = transformation3.compose(transformation1.compose(transformation2.compose(transformation3.compose(transformation1.compose(transformation2)))));
+
+  //It's worth realizing that composed transformations act on the updated state, not the old state. this could be done more abstractly, but this is probably the most important case to handle.
+  
+  var transformation = transformationAdd1.compose(transformationAdd1.compose(transformationAdd1)); 
   var output = transformation.transformation(input);
 
 
   //circles.style("fill", "#aaa").attr("r", 12);
   //circles.transition().duration(500).delay(0).style("fill", "steelblue");
   //circles.transition().duration(500).delay(1000).attr("r", 30);
+//    console.log(transformation.mapping(input)([[0],[2], [4], [6]]));
 
-    console.log(output.string);
+ //   console.log(output.string);
     var newLocation = [];
+    var offset = 50*(10-input.length);
     for(var i = 0; i<input.length; i++){
       
       newLocation[i] = transformation.mapping(input)([[i]])*100+50;
     }
-   // console.log(newLocation);
+    //console.log(newLocation);
 
     var gs = svg.selectAll("g");
     gs.transition().duration(800).delay(0).attr("transform", function(d, i) {
              // Set d.x and d.y here so that other elements can use it. d is 
              // expected to be an object here.
              var dx = newLocation[i-1];
-             var dy = 90;
-            // console.log(d, i, dx, dy );
+             var dy = 140;
+             console.log(d, i, dx, dy );
              return "translate(" + dx + "," + dy + ")"; 
            });
 
