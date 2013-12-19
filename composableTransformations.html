@@ -1,185 +1,85 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <script type="text/javascript" src="http://mbostock.github.com/d3/d3.js"></script>
-</head>
-<body>
-<button id="setup">Setup</button>
-
-<button id="go">Go</button>
-    <div id="viz"></div>
-
-
-<div class="formula">
-                Start: <input id="start" value="1+2+3+4"/>
-                End: <input id="end"/>
-</div>
-
-
-
-
-
+<meta charset="utf-8">
+<title>Analoginator</title>
+<script src="http://mbostock.github.com/d3/d3.js"></script>
 <script src="transformations.js"></script>
 
+<button id="setup">Setup</button>
+<button id="go">Go</button>
+<div id="viz"></div>
+<div class="formula">
+  Start: <input id="start" value="1+2+3+4"/>
+  End: <input id="end"/>
+</div>
 
-    <script type="text/javascript">
+<script>
 
-var svg_w = 800;
-var svg_h = 400;
+var svg_w = 800
+   ,svg_h = 400
+   ,start_node = d3.select('#start').node()
+   ,start_text = "1+2+3+4";
 var svg = d3.select("body").append("svg")
             .attr("width", svg_w)
             .attr("weight", svg_h);
 
 
+var setup = function(startString) {
+  d3.select('#start').text(startString);
+  svg.selectAll(".node").remove();
 
- 
-var setup = function(startString, endString){
- 
-  //turn off end boxes--these are now calc'd by the transformation
-  endString="";
+  var startNodes = svg.selectAll(".node")
+    .data(startString);
 
-  var oldNodes = svg.selectAll("g").remove();
+  startNodes.enter()
+    .append('text')
+    .classed('node', true)
+    .style("text-anchor", "middle");
 
-  var startNodes = svg.append("g")
-               .attr("class", "nodes").selectAll("circle")
-               .data(startString);
+  startNodes
+    .attr('x', function (d,i) { return i*100 + 100 })
+    .attr('y', 50)
+    .text(function (d) { return d });
+}
 
-
-
-  startNodes.enter().append("g")
-   // Position the g element like the circle element used to be.
-           .attr("transform", function(d, i) {
-             // Set d.x and d.y here so that other elements can use it. d is 
-             // expected to be an object here.
-             var offset = 50*(10-startString.length);
-
-             var dx = i * 100 + offset;
-             var dy = 50;
-             return "translate(" + dx + "," + dy + ")"; 
-           });
-
-
-startNodes.append("circle")
-    .style("stroke", "none")
-    .style("fill", "none")
-      .attr("r", 20);
-
-
-  startNodes.append("text")
-     .attr("text-anchor", "middle")
-     .text(function(d, i) {
-       return d;
-      });
-
-
-var endNodes = svg.append("g")
-               .attr("class", "nodes").selectAll("circle")
-               .data(endString);
-
-
-
-  endNodes.enter().append("g")
-   // Position the g element like the circle element used to be.
-           .attr("transform", function(d, i) {
-             // Set d.x and d.y here so that other elements can use it. d is 
-             // expected to be an object here.
-
-             var dx = i * 100 + 50;
-             var dy = 150;
-             return "translate(" + dx + "," + dy + ")"; 
-           });
-
-
-endNodes.append("circle")
-    .style("stroke", "none")
-    .style("fill", "none")
-      .attr("r", 20);
-
-
-  endNodes.append("text")
-     .attr("text-anchor", "middle")
-     .text(function(d, i) {
-       return d;
-      });
-
-   };
-
-
-
-
-
-
-setup('1+2+3+4', 'b+a');
-
-
-
+setup(start_text);
 
 // Visualization
-
 d3.select("#setup").on("click", function() {
-                setup(document.getElementById("start").value,
-                  document.getElementById("end").value);
-                
-              });
-
-
-
-
-
+  setup(start_node.value);
+});
 
 d3.select("#go").on("click", function() {
-  var circles = svg.selectAll("circle");
-  var input = new stateFromString(document.getElementById("start").value);
-  
-  //
+  var input = new stateFromString(start_node.value);
+
   var transformation1 = pattern_commutePlus([0, 2]);
   var transformation2 = pattern_commutePlus([2, 4]);
   var transformation3 = pattern_commutePlus([4, 6]);
   var transformationAdd1 = pattern_executePlus([0, 2]);
   var transformationAdd2 = pattern_executePlus([2, 4]);
-    var transformationAdd3 = pattern_executePlus([4, 6]);
+  var transformationAdd3 = pattern_executePlus([4, 6]);
 
   //Test Cases For Erik
-//  var transformation = transformationAdd2.compose(transformation1.compose(transformationAdd1.compose(transformation2)));
+  //var transformation = transformationAdd2.compose(transformation1.compose(transformationAdd1.compose(transformation2)));
+  // var transformation = transformationAdd1.compose(transformationAdd3);
+  // var transformation = transformation3.compose(transformation1.compose(transformation2.compose(transformation3.compose(transformation1.compose(transformation2)))));
+  // It's worth realizing that composed transformations act on the updated state, not the old state. this could be done more abstractly, but this is probably the most important case to handle.
 
-  //var transformation = transformationAdd1.compose(transformationAdd3);
-
- // var transformation = transformation3.compose(transformation1.compose(transformation2.compose(transformation3.compose(transformation1.compose(transformation2)))));
-
-  //It's worth realizing that composed transformations act on the updated state, not the old state. this could be done more abstractly, but this is probably the most important case to handle.
-  
-  var transformation = transformationAdd1.compose(transformationAdd1.compose(transformationAdd1)); 
+  //var transformation = transformationAdd1.compose(transformationAdd1.compose(transformationAdd1));
+  //transformation = transformationAdd1;
   var output = transformation.transformation(input);
 
+  var newLocation = []
+     ,mapping = transformation.mapping(input);
+  for(var i=0; i<input.length; i++) {
+    newLocation[i] = mapping([[i]])*100 + 100;
+  }
 
-  //circles.style("fill", "#aaa").attr("r", 12);
-  //circles.transition().duration(500).delay(0).style("fill", "steelblue");
-  //circles.transition().duration(500).delay(1000).attr("r", 30);
-//    console.log(transformation.mapping(input)([[0],[2], [4], [6]]));
+  var nodes = svg.selectAll(".node");
+  nodes.transition()
+    .duration(800)
+    .attr("x", function (d, i) { return newLocation[i] });
 
- //   console.log(output.string);
-    var newLocation = [];
-    var offset = 50*(10-input.length);
-    for(var i = 0; i<input.length; i++){
-      
-      newLocation[i] = transformation.mapping(input)([[i]])*100+50;
-    }
-    //console.log(newLocation);
-
-    var gs = svg.selectAll("g");
-    gs.transition().duration(800).delay(0).attr("transform", function(d, i) {
-             // Set d.x and d.y here so that other elements can use it. d is 
-             // expected to be an object here.
-             var dx = newLocation[i-1];
-             var dy = 140;
-             console.log(d, i, dx, dy );
-             return "translate(" + dx + "," + dy + ")"; 
-           });
-
+  start_node.value = output.string;
 });
 
 </script>
-
-
-</body>
-</html>
